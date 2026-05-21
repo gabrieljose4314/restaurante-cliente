@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurante Império – Cardápio</title>
+
+<link rel="stylesheet" href="style.css">
+<script src="script.js" type="module" defer></script>
+
+</head>
+<body>
+
+<header>
+    <h1> Restaurante Império </h1>
+    <h2>Faça seu pedido — retirada no restaurante</h2>
+</header>
+
+<main>
+
+    <section>
+        <h3>Seus dados</h3>
+        <div class="campo-nome">
+            <label for="nomeCliente">Seu nome *</label>
+            <input type="text" id="nomeCliente" placeholder="Ex: João Silva">
+        </div>
+    </section>
+
+    <section>
+        <h3>Cardápio</h3>
+        <div class="categoria-titulo">🍱 Marmitex do Dia</div>
+        <div id="lista-marmitex"></div>
+        <div class="categoria-titulo">🥤 Bebidas</div>
+        <div id="lista-bebidas"></div>
+    </section>
+
+    <section>
+        <h3>Seu pedido</h3>
+        <div id="resumo-carrinho">
+            <div id="lista-carrinho-itens">
+                <p style="color:#999">Nenhum item adicionado ainda.</p>
+            </div>
+            <p id="total-linha" style="font-weight:bold;color:#2d4a2b;margin-top:.4rem;display:none">
+                Total: R$ <span id="total-valor">0,00</span>
+            </p>
+        </div>
+        <label for="obs-pedido" style="font-weight:bold;color:#4a3728;display:block;margin-bottom:.4rem">Observações (opcional)</label>
+        <textarea id="obs-pedido" rows="2" placeholder="Ex: sem cebola, mais arroz..."></textarea>
+        <button id="btn-pedir" onclick="confirmarPedido()">Fazer Pedido</button>
+    </section>
+
+    <section id="secao-status">
+        <h3>📦 Acompanhar meu pedido</h3>
+        <div id="area-status"></div>
+    </section>
+
+</main>
+
+<div class="modal-overlay" id="modalConfirmacao">
+    <div class="modal">
+        <div style="font-size:2rem;margin-bottom:.5rem">✅</div>
+        <h2>Pedido enviado!</h2>
+        <p>Seu pedido foi recebido pelo restaurante.<br>Acompanhe o status logo abaixo.</p>
+        <button onclick="fecharModal()">Ver status</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+</body>
+</html>
