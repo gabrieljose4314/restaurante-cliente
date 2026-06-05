@@ -4,15 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Restaurante Império – Cardápio</title>
-
 <link rel="stylesheet" href="style.css">
-<script src="script.js" type="module" defer></script>
-
+<script src="script.js?v=1.1" type="module" defer></script>
 </head>
 <body>
 
 <header>
-    <h1> Restaurante Império </h1>
+    <h1>Restaurante Império</h1>
     <h2>Faça seu pedido — retirada no restaurante</h2>
 </header>
 
@@ -28,10 +26,19 @@
 
     <section>
         <h3>Cardápio</h3>
-        <div class="categoria-titulo">🍱 Marmitex do Dia</div>
-        <div id="lista-marmitex"></div>
-        <div class="categoria-titulo">🥤 Bebidas</div>
-        <div id="lista-bebidas"></div>
+        <div id="cardapio-loading" style="color:#999;font-size:.9rem">Carregando cardápio...</div>
+        <div id="bloco-marmitex" style="display:none">
+            <div class="categoria-titulo">🍱 Marmitex do Dia</div>
+            <div id="lista-marmitex"></div>
+        </div>
+        <div id="bloco-bebidas" style="display:none">
+            <div class="categoria-titulo">🥤 Bebidas</div>
+            <div id="lista-bebidas"></div>
+        </div>
+        <div id="bloco-outros" style="display:none">
+            <div class="categoria-titulo">🍽️ Outros</div>
+            <div id="lista-outros"></div>
+        </div>
     </section>
 
     <section>
@@ -49,7 +56,7 @@
         <button id="btn-pedir" onclick="confirmarPedido()">Fazer Pedido</button>
     </section>
 
-    <section id="secao-status">
+    <section id="secao-status" style="display:none">
         <h3>📦 Acompanhar meu pedido</h3>
         <div id="area-status"></div>
     </section>
@@ -66,7 +73,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
 
 </body>
 </html>
