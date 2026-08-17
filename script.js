@@ -21,6 +21,17 @@ let carrinho       = [];
 let intervalsPorId = {};
 let lojaAberta     = true; // assume aberta até o Firestore confirmar o contrário
 
+// ── NOTIFICAÇÕES DO NAVEGADOR ────────────────────────────────────────────
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+
+function notificarSistema(titulo, corpo) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(titulo, { body: corpo, icon: 'imperio_logo_silver.png' });
+    }
+}
+
 // ── STATUS DA LOJA (ABERTO/FECHADO) ─────────────────────────────────────
 // Escuta em tempo real: se o dono fechar a loja no painel, o cliente vê
 // a mudança na hora, sem precisar recarregar a página.
@@ -181,6 +192,7 @@ const passos      = ['pendente','preparando','pronto','entregue'];
 const passosLabel = ['⏳ Aguardando','👨‍🍳 Preparando','✅ Pronto!','📦 Retirado'];
 const statusLabel = { pendente:'⏳ Aguardando', preparando:'👨‍🍳 Preparando', pronto:'✅ Pronto para retirar!', entregue:'📦 Retirado' };
 const statusClass = { pendente:'s-pendente', preparando:'s-preparando', pronto:'s-pronto', entregue:'s-entregue' };
+const statusAnterior = {}; // guarda o último status conhecido de cada pedido, pra detectar quando muda pra "pronto"
 
 function iniciarAcompanhamento(id) {
     document.getElementById('secao-status').style.display = 'block';
@@ -194,6 +206,15 @@ async function buscarStatus(id) {
         const snap = await getDoc(doc(db,'pedidos', id));
         if (!snap.exists()) return;
         const d = snap.data();
+
+        // dispara notificação só na transição PARA "pronto" (não repete a
+        // cada 3s enquanto o status continuar o mesmo)
+        if (statusAnterior[id] && statusAnterior[id] !== 'pronto' && d.status === 'pronto') {
+            notificarSistema('Seu pedido está pronto! ✅', `${d.cliente}, pode vir retirar.`);
+            showToast('Seu pedido está pronto! 🛎️');
+        }
+        statusAnterior[id] = d.status;
+
         renderStatus(id, d);
         if (d.status === 'entregue') {
             clearInterval(intervalsPorId[id]);
