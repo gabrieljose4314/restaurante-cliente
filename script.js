@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, query, orderBy, serverTimestamp }
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, query, orderBy, serverTimestamp, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -19,6 +19,22 @@ let bebidas        = [];
 let outros         = [];
 let carrinho       = [];
 let intervalsPorId = {};
+let lojaAberta     = true; // assume aberta até o Firestore confirmar o contrário
+
+// ── STATUS DA LOJA (ABERTO/FECHADO) ─────────────────────────────────────
+// Escuta em tempo real: se o dono fechar a loja no painel, o cliente vê
+// a mudança na hora, sem precisar recarregar a página.
+onSnapshot(doc(db, 'config', 'loja'), (snap) => {
+    lojaAberta = snap.exists() ? (snap.data().aberto !== false) : true;
+    aplicarStatusLoja();
+});
+
+function aplicarStatusLoja() {
+    const btn   = document.getElementById('btn-pedir');
+    const aviso = document.getElementById('aviso-fechado');
+    if (btn)   btn.disabled = !lojaAberta;
+    if (aviso) aviso.style.display = lojaAberta ? 'none' : 'block';
+}
 
 // ── CARDÁPIO (busca a cada 10s) ───────────────────────────────────────────
 async function carregarCardapio() {
@@ -113,6 +129,11 @@ function atualizarCarrinho() {
 
 // ── PEDIDO ────────────────────────────────────────────────────────────────
 window.confirmarPedido = async () => {
+    // Checagem dupla: mesmo que o botão tenha sido reabilitado por algum
+    // motivo (ex: cache antigo), não deixa o pedido seguir se a loja
+    // estiver marcada como fechada.
+    if (!lojaAberta) { showToast('A loja está fechada no momento ⚠️'); return; }
+
     const nome = document.getElementById('nomeCliente').value.trim();
     if (!nome)            { showToast('Informe seu nome antes de pedir ⚠️'); return; }
     if (!carrinho.length) { showToast('Adicione itens ao carrinho ⚠️'); return; }
@@ -146,7 +167,8 @@ window.confirmarPedido = async () => {
         console.error(e);
     }
 
-    btn.disabled = false; btn.textContent = 'Fazer Pedido';
+    btn.disabled = !lojaAberta;
+    btn.textContent = 'Fazer Pedido';
 };
 
 window.fecharModal = () => {

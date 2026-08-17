@@ -292,6 +292,24 @@ hr.divisor { border: none; border-top: 1px solid var(--borda-clara); margin: .6r
 }
 .toast.show { opacity: 1; }
 
+.aviso-loja-fechada {
+    background-color: #2a0f0f;
+    border: 1px solid var(--vermelho, #9c2b2b);
+    color: #f3b8b8;
+    padding: .85rem 1rem;
+    border-radius: 4px;
+    font-size: .9rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+#btn-pedir:disabled {
+    background-color: #555;
+    color: #ccc;
+    cursor: not-allowed;
+}
+
 @media (max-width: 600px) {
     .item-cardapio { flex-wrap: wrap; }
     .passo { font-size: .62rem; padding: .35rem .1rem; }
