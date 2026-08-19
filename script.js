@@ -14,12 +14,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-let marmitex       = [];
-let bebidas        = [];
-let outros         = [];
-let carrinho       = [];
-let intervalsPorId = {};
-let lojaAberta     = true; // assume aberta até o Firestore confirmar o contrário
+let marmitex        = [];
+let bebidas         = [];
+let outros          = [];
+let carrinho        = [];
+let unsubsPorId      = {}; // guarda a função de "desligar" de cada listener de status, por id de pedido
+let lojaAberta       = true; // assume aberta até o Firestore confirmar o contrário
 
 // ── NOTIFICAÇÕES DO NAVEGADOR ────────────────────────────────────────────
 if ('Notification' in window && Notification.permission === 'default') {
@@ -47,23 +47,25 @@ function aplicarStatusLoja() {
     if (aviso) aviso.style.display = lojaAberta ? 'none' : 'block';
 }
 
-// ── CARDÁPIO (busca a cada 10s) ───────────────────────────────────────────
-async function carregarCardapio() {
-    try {
-        const snap = await getDocs(query(collection(db,'cardapio'), orderBy('criadoEm')));
-        marmitex = []; bebidas = []; outros = [];
-        snap.docs.forEach(d => {
-            const item = { id: d.id, ...d.data() };
-            if (item.categoria === 'marmitex')    marmitex.push(item);
-            else if (item.categoria === 'bebida') bebidas.push(item);
-            else                                  outros.push(item);
-        });
-        renderLista(marmitex, 'lista-marmitex', 'bloco-marmitex');
-        renderLista(bebidas,  'lista-bebidas',  'bloco-bebidas');
-        renderLista(outros,   'lista-outros',   'bloco-outros');
-        document.getElementById('cardapio-loading').style.display = 'none';
-    } catch(e) { console.error(e); }
-}
+// ── CARDÁPIO (tempo real, sem polling) ───────────────────────────────────
+// Antes buscava tudo de novo a cada 10s, em toda aba de cliente aberta.
+// Agora é um listener só: carrega uma vez e só atualiza quando o dono
+// mexe em algo no painel (adiciona, edita ou remove item).
+onSnapshot(query(collection(db, 'cardapio'), orderBy('criadoEm')), (snap) => {
+    marmitex = []; bebidas = []; outros = [];
+    snap.docs.forEach(d => {
+        const item = { id: d.id, ...d.data() };
+        if (item.categoria === 'marmitex')    marmitex.push(item);
+        else if (item.categoria === 'bebida') bebidas.push(item);
+        else                                  outros.push(item);
+    });
+    renderLista(marmitex, 'lista-marmitex', 'bloco-marmitex');
+    renderLista(bebidas,  'lista-bebidas',  'bloco-bebidas');
+    renderLista(outros,   'lista-outros',   'bloco-outros');
+    document.getElementById('cardapio-loading').style.display = 'none';
+}, (erro) => {
+    console.error('Erro no listener do cardápio:', erro);
+});
 
 function renderLista(lista, containerId, blocoId) {
     const el    = document.getElementById(containerId);
@@ -98,9 +100,6 @@ function renderLista(lista, containerId, blocoId) {
         if (el) el.textContent = c.qtd;
     });
 }
-
-carregarCardapio();
-setInterval(carregarCardapio, 10000);
 
 // ── CARRINHO ──────────────────────────────────────────────────────────────
 window.mudarQtd = (id, delta) => {
@@ -187,7 +186,7 @@ window.fecharModal = () => {
     document.getElementById('secao-status').scrollIntoView({ behavior:'smooth' });
 };
 
-// ── ACOMPANHAMENTO (a cada 3s) ────────────────────────────────────────────
+// ── ACOMPANHAMENTO (tempo real, sem polling) ──────────────────────────────
 const passos      = ['pendente','preparando','pronto','entregue'];
 const passosLabel = ['⏳ Aguardando','👨‍🍳 Preparando','✅ Pronto!','📦 Retirado'];
 const statusLabel = { pendente:'⏳ Aguardando', preparando:'👨‍🍳 Preparando', pronto:'✅ Pronto para retirar!', entregue:'📦 Retirado' };
@@ -196,19 +195,19 @@ const statusAnterior = {}; // guarda o último status conhecido de cada pedido, 
 
 function iniciarAcompanhamento(id) {
     document.getElementById('secao-status').style.display = 'block';
-    buscarStatus(id);
-    if (intervalsPorId[id]) clearInterval(intervalsPorId[id]);
-    intervalsPorId[id] = setInterval(() => buscarStatus(id), 3000);
-}
 
-async function buscarStatus(id) {
-    try {
-        const snap = await getDoc(doc(db,'pedidos', id));
-        if (!snap.exists()) return;
+    if (unsubsPorId[id]) unsubsPorId[id](); // evita listener duplicado se a função for chamada 2x pro mesmo pedido
+
+    unsubsPorId[id] = onSnapshot(doc(db, 'pedidos', id), (snap) => {
+        if (!snap.exists()) {
+            // pedido foi apagado (ex: dono limpou concluídos) — desliga o listener e sai
+            if (unsubsPorId[id]) { unsubsPorId[id](); delete unsubsPorId[id]; }
+            return;
+        }
         const d = snap.data();
 
-        // dispara notificação só na transição PARA "pronto" (não repete a
-        // cada 3s enquanto o status continuar o mesmo)
+        // dispara notificação só na transição PARA "pronto" (não repete
+        // toda vez que o snapshot atualizar se o status já era esse)
         if (statusAnterior[id] && statusAnterior[id] !== 'pronto' && d.status === 'pronto') {
             notificarSistema('Seu pedido está pronto! ✅', `${d.cliente}, pode vir retirar.`);
             showToast('Seu pedido está pronto! 🛎️');
@@ -216,13 +215,15 @@ async function buscarStatus(id) {
         statusAnterior[id] = d.status;
 
         renderStatus(id, d);
+
         if (d.status === 'entregue') {
-            clearInterval(intervalsPorId[id]);
-            delete intervalsPorId[id];
+            if (unsubsPorId[id]) { unsubsPorId[id](); delete unsubsPorId[id]; }
             const salvos = JSON.parse(localStorage.getItem('pedidos') || '[]');
             localStorage.setItem('pedidos', JSON.stringify(salvos.filter(i => i !== id)));
         }
-    } catch(e) { console.error(e); }
+    }, (erro) => {
+        console.error('Erro no listener do pedido ' + id + ':', erro);
+    });
 }
 
 function renderStatus(id, d) {
